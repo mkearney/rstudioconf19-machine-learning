@@ -1,0 +1,18 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+# rstudioconf19-machine-learning
+
+<!-- badges: start -->
+<!-- badges: end -->
+
+Workshop repo: [topepo/rstudio-conf-2019](https://github.com/topepo/rstudio-conf-2019)
