@@ -7,6 +7,8 @@
 
 library(tidymodels)
 library(ggrepel)
+library(tbltools)
+options(tbltools.print_tibble = FALSE)
 theme_set(dataviz::theme_mwk(base_size = 14))
 
 # Slide 5 --------------------------------------------------------
@@ -16,49 +18,91 @@ temp_save <- tempfile()
 download.file(url, destfile = temp_save)
 load(temp_save)
 
-car_train %>% bind_rows(car_test) %>% group_by(year) %>% count()
+car_train %>%
+  bind_rows_data(car_test) %>%
+  group_by_data(year) %>%
+  summarise_data(n = n_obs())
 
 # Slide 6 --------------------------------------------------------
 
 removals <- c("CNG", "Electricity")
 
-car_train <-
-  car_train %>%
+car_train <- car_train %>%
   dplyr::filter(!(fuel_type %in% removals)) %>%
   mutate(fuel_type = relevel(fuel_type, "Gasoline_or_natural_gas"))
 
-car_test <-
-  car_test %>%
+car_test <- car_test %>%
   dplyr::filter(!(fuel_type %in% removals)) %>%
   mutate(fuel_type = relevel(fuel_type, "Gasoline_or_natural_gas"))
 
 # Slide 9 --------------------------------------------------------
 
-## library(splines)
-## lm(mpg ~ . -model + ns(eng_displ, 4) + ns(cylinders, 4), data = car_train)
+## use splines
+car_train %>%
+  lm(mpg ~ . -model + splines::ns(eng_displ, 4) + splines::ns(cylinders, 4), data = .) %>%
+  broom::tidy() %>%
+  arrange_data(decr(statistic)) %>%
+  mutate_data(p.value = zapsmall(p.value)) %>%
+  print(n = 20, digits = 3)
 
 # Slide 10 -------------------------------------------------------
 
 car_train %>%
-  group_by(make) %>%
-  count() %>%
-  arrange(n) %>%
+  group_by_data(make) %>%
+  summarise_data(n = n_obs()) %>%
+  arrange_data(n) %>%
   head(6)
 
 # Slide 10 -------------------------------------------------------
 
-basic_rec <- recipe(mpg ~ ., data = car_train) %>%
-  # keep the car name but don't use as a predictor
+## preprocessing recipe
+basic_rec <- car_train %>%
+  ## receipe for model predicting mpg with all vars
+  recipe(mpg ~ .) %>%
+  ## keep the car name but don't use as a predictor
   update_role(model, new_role = "model") %>%
-  # collapse some makes into "other"
+  ## collapse some makes into "other"
   step_other(make, car_class, threshold = 0.005) %>%
   step_other(fuel_type, threshold = 0.01) %>%
+  ## imputate missing values using k-nearest neighbor
+  step_knnimpute(all_predictors()) %>%
+  ## creates all dummy variables
   step_dummy(all_nominal(), -model) %>%
+  ## minimum variance filter
   step_zv(all_predictors())
+
+## standardized version
+basic_rec_std <- basic_rec %>%
+  step_center(all_predictors())  %>%
+  step_scale(all_predictors())
+
+## estimate pop values via training data
+trained_rec_std <- prep(basic_rec_std, training = car_train)
+trained_rec_std
+
+## apply recipes to train and test data
+train_data <- bake(trained_rec_std, new_data = car_train)
+test_data  <- bake(trained_rec_std, new_data = car_test)
+
+## compare pre-processing to post-processing
+car_train %>%
+  lm(mpg ~ . -model + splines::ns(eng_displ, 4) + splines::ns(cylinders, 4), data = .) %>%
+  broom::glance()
+
+train_data %>%
+  lm(mpg ~ . -model + splines::ns(eng_displ, 4) + splines::ns(cylinders, 4), data = .) %>%
+  broom::glance()
+
+
+#x <- recipe(mpg ~ ., data = car_train)
+
 # Slide 15 -------------------------------------------------------
 
-glmn_grid <- expand.grid(alpha = seq(0, 1, by = .25),
-                         lambda = 10^seq(-3, -1, length = 20))
+## hyper-parameters grid
+glmn_grid <- expand.grid(
+  alpha = seq(0, 1, by = .25),
+  lambda = 10^seq(-3, -1, length = 20)
+)
 nrow(glmn_grid)
 
 # Slide 18 -------------------------------------------------------
@@ -70,12 +114,11 @@ ctrl <- trainControl(
   savePredictions = "final",
   # Log the progress of the tuning process
   verboseIter = TRUE
-  )
+)
 
 # Slide 19 -------------------------------------------------------
 
-glmn_rec <-
-  basic_rec %>%
+glmn_rec <- basic_rec %>%
   step_center(all_predictors()) %>%
   step_scale(all_predictors()) %>%
   step_ns(eng_displ, cylinders, options = list(df = 4))
