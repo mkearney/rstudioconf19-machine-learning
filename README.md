@@ -1,7 +1,7 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# rstudioconf19-machine-learning <img src="img/logo.png" width="210px" align="right" />
+# rstudioconf19-machine-learning <img src="img/logo.png" width="160px" align="right" />
 
 <!-- badges: start -->
 
