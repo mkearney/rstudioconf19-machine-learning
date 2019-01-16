@@ -234,7 +234,8 @@ cv_splits <- cv_splits %>%
     Sale_Price ~ .)
   )
 
-glance(cv_splits$models[[1]]$fit)
+## view fit statistics
+glance(cv_splits[["models"]][[1]]$fit)
 
 # Slide 42 -------------------------------------------------------
 
