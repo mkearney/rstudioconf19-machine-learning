@@ -7,7 +7,7 @@
 
 library(tidymodels)
 library(ggrepel)
-theme_set(theme_bw())
+theme_set(dataviz::theme_mwk(base_size = 14))
 
 # Slide 5 --------------------------------------------------------
 

@@ -17,25 +17,34 @@ ames <- make_ames() %>%
   dplyr::select(-matches("Qu"))
 
 set.seed(4595)
+
+## split (set row IDs) data into train/test
 data_split <- initial_split(ames, strata = "Sale_Price")
 
+## extract train and test data sets
 ames_train <- training(data_split)
 ames_test  <- testing(data_split)
 
+## percent of obs in training data
+nrow(ames_train) / nrow(ames)
+
+## 10-fold cross validation
 set.seed(2453)
 cv_splits <- vfold_cv(ames_train, v = 10, strata = "Sale_Price")
 
 # Slide 12 -------------------------------------------------------
 
-mod_rec <- recipe(Sale_Price ~ Longitude + Latitude, data = ames_train) %>%
+## apply recipe (preprocessing steps)
+mod_rec <- ames_train %>%
+  recipe(Sale_Price ~ Longitude + Latitude) %>%
   step_log(Sale_Price, base = 10)
 
 # Slide 13 -------------------------------------------------------
 
-mod_rec <- recipe(
-  Sale_Price ~ Longitude + Latitude + Neighborhood,
-  data = ames_train
-) %>%
+mod_rec <- ames_train %>%
+  recipe(
+    Sale_Price ~ Longitude + Latitude + Neighborhood
+  ) %>%
   step_log(Sale_Price, base = 10) %>%
 
   # Lump factor levels that occur in
@@ -65,53 +74,46 @@ names(ames_test_dummies)
 library(caret)
 data(segmentationData)
 
-segmentationData <-
-  segmentationData %>%
+segmentationData <- segmentationData %>%
   dplyr::select(EqSphereAreaCh1, PerimCh1, Class, Case) %>%
   setNames(c("PredictorA", "PredictorB", "Class", "Case")) %>%
   mutate(Class = factor(ifelse(Class == "PS", "One", "Two")))
 
-bivariate_data_train <-
-  segmentationData %>%
+bivariate_data_train <- segmentationData %>%
   dplyr::filter(Case == "Train") %>%
   dplyr::select(-Case)
 
-bivariate_data_test  <-
-  segmentationData %>%
+bivariate_data_test <- segmentationData %>%
   dplyr::filter(Case == "Test") %>%
   dplyr::select(-Case)
 
 # Slide 21 -------------------------------------------------------
 
 ggplot(bivariate_data_test,
-       aes(x = PredictorA,
-           y = PredictorB,
-           color = Class)) +
+  aes(x = PredictorA, y = PredictorB, color = Class)) +
   geom_point(alpha = .3, cex = 1.5) +
   theme(legend.position = "top")
 
 # Slide 22/23 ----------------------------------------------------
 
-bivariate_rec <-
-  recipe(Class ~ PredictorA + PredictorB, data = bivariate_data_train) %>%
+bivariate_rec <- bivariate_data_train %>%
+  recipe(Class ~ PredictorA + PredictorB) %>%
   step_BoxCox(all_predictors()) %>%
   prep(training = bivariate_data_train)
 
 inverse_test <- bake(bivariate_rec, new_data = bivariate_data_test, everything())
 
 ggplot(inverse_test,
-       aes(x = 1/PredictorA,
-           y = 1/PredictorB,
-           color = Class)) +
+  aes(x = 1/PredictorA, y = 1/PredictorB, color = Class)) +
   geom_point(alpha = .3, cex = 1.5) +
   theme(legend.position = "top") +
-  xlab("1/A") + ylab("1/B")
+  labs(x = "1/A", y = "1/B")
 
 
 # Slide 28/29 ----------------------------------------------------
 
-bivariate_pca <-
-  recipe(Class ~ PredictorA + PredictorB, data = bivariate_data_train) %>%
+bivariate_pca <- bivariate_data_train %>%
+  recipe(Class ~ PredictorA + PredictorB) %>%
   step_BoxCox(all_predictors()) %>%
   step_center(all_predictors()) %>%
   step_scale(all_predictors()) %>%
@@ -133,10 +135,7 @@ ggplot(pca_test, aes(x = PC1, y = PC2, color = Class)) +
 
 price_breaks <- (1:6)*(10^5)
 
-ggplot(
-    ames_train,
-    aes(x = Year_Built, y = Sale_Price)
-  ) +
+ggplot(ames_train, aes(x = Year_Built, y = Sale_Price)) +
   geom_point(alpha = 0.4) +
   scale_x_log10() +
   scale_y_continuous(
@@ -149,11 +148,7 @@ ggplot(
 
 library(MASS) # to get robust linear regression model
 
-ggplot(
-    ames_train,
-    aes(x = Year_Built,
-        y = Sale_Price)
-  ) +
+ggplot(ames_train, aes(x = Year_Built, y = Sale_Price)) +
   geom_point(alpha = 0.4) +
   scale_y_continuous(
     breaks = price_breaks,
@@ -183,10 +178,10 @@ recipe(Sale_Price ~ Year_Built + Central_Air, data = ames_train) %>%
   slice(153:157)
 
 # Slide 37 -------------------------------------------------------
-lin_terms <- recipe(Sale_Price ~ Bldg_Type + Neighborhood + Year_Built +
-                      Gr_Liv_Area + Full_Bath + Year_Sold + Lot_Area +
-                      Central_Air + Longitude + Latitude,
-                    data = ames_train) %>%
+lin_terms <- ames_train %>%
+  recipe(Sale_Price ~ Bldg_Type + Neighborhood + Year_Built +
+      Gr_Liv_Area + Full_Bath + Year_Sold + Lot_Area +
+      Central_Air + Longitude + Latitude) %>%
   step_log(Sale_Price, base = 10) %>%
   step_BoxCox(Lot_Area, Gr_Liv_Area) %>%
   step_other(Neighborhood, threshold = 0.05)  %>%
@@ -198,8 +193,7 @@ nonlin_terms <- lin_terms %>%
 
 # Slide 38 -------------------------------------------------------
 
-ggplot(ames_train,
-       aes(x = Longitude, y = Sale_Price)) +
+ggplot(ames_train, aes(x = Longitude, y = Sale_Price)) +
   geom_point(alpha = .5) +
   geom_smooth(
     method = "lm",
@@ -210,8 +204,7 @@ ggplot(ames_train,
 
 # Slide 39 -------------------------------------------------------
 
-ggplot(ames_train,
-       aes(x = Latitude, y = Sale_Price)) +
+ggplot(ames_train, aes(x = Latitude, y = Sale_Price)) +
   geom_point(alpha = .5) +
   geom_smooth(
     method = "lm",
@@ -295,9 +288,7 @@ assess_pred <- cv_splits %>%
     .pred = 10^.pred
   )
 
-ggplot(assess_pred,
-       aes(x = Sale_Price,
-           y = .pred)) +
+ggplot(assess_pred, aes(x = Sale_Price, y = .pred)) +
   geom_abline(lty = 2) +
   geom_point(alpha = .4)  +
   geom_smooth(se = FALSE, col = "red")
